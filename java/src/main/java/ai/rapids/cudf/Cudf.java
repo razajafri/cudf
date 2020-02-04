@@ -74,12 +74,6 @@ class Cudf {
                                            int op, int dtype);
 
 
-  static long filter(ColumnVector input, ColumnVector mask) {
-    return filter(input.getNativeCudfColumnAddress(), mask.getNativeCudfColumnAddress());
-  }
-
-  private static native long filter(long input, long mask);
-
   /**
    * Replaces nulls on the input ColumnVector with the value of Scalar.
    *
@@ -117,11 +111,11 @@ class Cudf {
   private static native void fill(long input, long sIntValues, float sFValue,
                                   double sDValue, boolean sIsValid, int sDtype);
 
-  static Scalar reduction(ColumnVector v, ReductionOp op, DType outType) {
-    return reduction(v.getNativeCudfColumnAddress(), op.nativeId, outType.nativeId);
+  static Scalar reduce(ColumnVector v, ReductionOp op, DType outType) {
+    return reduce(v.getNativeCudfColumnAddress(), op.nativeId, outType.nativeId);
   }
 
-  private static native Scalar reduction(long v, int op, int dtype);
+  private static native Scalar reduce(long v, int op, int dtype);
 
   /* datetime extract*/
 
