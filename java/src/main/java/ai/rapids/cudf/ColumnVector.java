@@ -3478,6 +3478,24 @@ public final class ColumnVector implements AutoCloseable, BinaryOperable, Column
    * This method is evolving, unstable and currently test only.
    * Please use with caution and expect it to change in the future.
    */
+  public static<T> ColumnVector createStruct(HostColumnVector.ColumnBuilder.StructType type, Object... values) {
+    try (HostColumnVector host = HostColumnVector.fromObjects(type, values)) {
+      return host.copyToDevice();
+    }
+  }
+
+  public static<T> ColumnVector createStruct(Object... values) {
+    // TODO: infreSchema(values[0])
+//    try (HostColumnVector host = HostColumnVector.fromObjects(type, values)) {
+//      return host.copyToDevice();
+//    }
+    return null;
+  }
+
+  /**
+   * This method is evolving, unstable and currently test only.
+   * Please use with caution and expect it to change in the future.
+   */
   public static<T> ColumnVector fromLists(HostColumnVector.ColumnBuilder.DataType dataType, List<T>... lists) {
     try (HostColumnVector host = HostColumnVector.fromLists(dataType, lists)) {
       return host.copyToDevice();

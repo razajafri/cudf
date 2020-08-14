@@ -801,6 +801,13 @@ public final class HostColumnVector implements AutoCloseable {
     }
   }
 
+  public static<T> HostColumnVector fromObjects(ColumnBuilder.StructType schema,
+                                                Object... values) {
+    ColumnBuilder cb = new ColumnBuilder(schema);
+    cb.appendObjects(schema, values);
+    return cb.build();
+  }
+
   public static<T> HostColumnVector fromLists(ColumnBuilder.DataType dataType, List<T>... values) {
     ColumnBuilder cb = new ColumnBuilder(dataType);
     cb.appendLists(values);
@@ -1327,33 +1334,60 @@ public final class HostColumnVector implements AutoCloseable {
         setNullAt(currentIndex);
       } else {
         for (Object listElement : inputList) {
-          if (listElement == null) {
-            childBuilder.appendNull();
-          } else if (listElement instanceof Integer) {
-            childBuilder.append((Integer) listElement);
-          } else if (listElement instanceof String) {
-            childBuilder.append((String) listElement);
-          }  else if (listElement instanceof Double) {
-            childBuilder.append((Double) listElement);
-          } else if (listElement instanceof List) {
-            childBuilder.append((List) listElement);
-          } else if (listElement instanceof Float) {
-            childBuilder.append((Float) listElement);
-          } else if (listElement instanceof Boolean) {
-            childBuilder.append((Boolean) listElement);
-          } else if (listElement instanceof Long) {
-            childBuilder.append((Long) listElement);
-          } else if (listElement instanceof Byte) {
-            childBuilder.append((Byte) listElement);
-          } else if (listElement instanceof Short) {
-            childBuilder.append((Short) listElement);
-          }
+          appendElement(childBuilder, listElement);
         }
       }
       currentIndex++;
       initAndResizeOffsetBuffer();
       offsets.setInt(currentIndex * OFFSET_SIZE, childBuilder.getCurrentIndex());
       return this;
+    }
+
+    private void appendElement(HostColumnVector.ColumnBuilder childBuilder, Object listElement) {
+      if (listElement == null) {
+        childBuilder.appendNull();
+      } else if (listElement instanceof Integer) {
+        childBuilder.append((Integer) listElement);
+      } else if (listElement instanceof String) {
+        childBuilder.append((String) listElement);
+      }  else if (listElement instanceof Double) {
+        childBuilder.append((Double) listElement);
+      } else if (listElement instanceof List) {
+        childBuilder.append((List) listElement);
+      } else if (listElement instanceof Float) {
+        childBuilder.append((Float) listElement);
+      } else if (listElement instanceof Boolean) {
+        childBuilder.append((Boolean) listElement);
+      } else if (listElement instanceof Long) {
+        childBuilder.append((Long) listElement);
+      } else if (listElement instanceof Byte) {
+        childBuilder.append((Byte) listElement);
+      } else if (listElement instanceof Short) {
+        childBuilder.append((Short) listElement);
+      }
+    }
+
+    public ColumnBuilder appendObjects(StructType schema, Object[]... manyValues) {
+      assert type == DType.STRUCT;
+      //verify schema matches the data
+      verifySchema(this, schema);
+      for (Object[] values: manyValues) {
+        for (int i = 0; i < childBuilders.size(); i++) {
+          // TODO: this could result in an exception in the middle and builders could have
+          //  different lengths, we should clean up before returning
+          appendElement(childBuilders.get(i), values[i]);
+        }
+      }
+      return this;
+    }
+
+    private void verifySchema(ColumnBuilder builder, DataType schema) {
+      assert schema.getType() == builder.type : "schema mismatch";
+      assert builder.childBuilders.size() == schema.getNumChildren() : "schema mismatch";
+      for (int i = 0 ; i < schema.getNumChildren() ; i++) {
+        DataType dataType = schema.getChild(i);
+        verifySchema(childBuilders.get(i), dataType);
+      }
     }
 
     public void incrCurrentIndex() {
@@ -1522,6 +1556,46 @@ public final class HostColumnVector implements AutoCloseable {
       abstract long getSize();
       abstract DataType getChild(int index);
       abstract int getNumChildren();
+    }
+
+    public static class StructType extends DataType {
+      private boolean isNullable;
+      private long size;
+      private DataType[] children;
+
+      public StructType(boolean isNullable, long size, DataType[] children) {
+        this.isNullable = isNullable;
+        this.size = size;
+        this.children = children;
+      }
+
+      @Override
+      DType getType() {
+        return DType.STRUCT;
+      }
+
+      @Override
+      boolean isNullable() {
+        return isNullable;
+      }
+
+      @Override
+      long getSize() {
+        return size;
+      }
+
+      @Override
+      DataType getChild(int index) {
+        if (index < 0 || index >= children.length) {
+          return null;
+        }
+        return children[index];
+      }
+
+      @Override
+      int getNumChildren() {
+        return 1;
+      }
     }
 
     public static class ListType extends DataType {
